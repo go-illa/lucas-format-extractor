@@ -1,0 +1,14 @@
+# Byte-compiled / optimized / C extensions
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# Output files
+/output/
+
+# IDE settings
+.idea/
+.vscode/
