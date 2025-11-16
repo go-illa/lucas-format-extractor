@@ -2,6 +2,8 @@ import pandas as pd
 import logging
 from typing import Dict, List, Union
 
+pd.set_option('future.no_silent_downcasting', True)
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
