@@ -1,143 +1,175 @@
-# AWS Lambda Deployment Guide (for AWS Web Console)
+# AWS Lambda Deployment Guide
 
-This guide provides step-by-step instructions for deploying the `lucas-format-extractor` project as an AWS Lambda function using the AWS Management Console (the web application).
+This guide provides step-by-step instructions for deploying the `lucas-format-extractor` project as an AWS Lambda function.
 
----
+## Prerequisites
 
-### Step 1: Build and Upload the Deployment Package
+1.  **AWS Account:** You need an AWS account with permissions to create S3 buckets, IAM roles, and Lambda functions.
+2.  **AWS CLI:** The AWS Command Line Interface (CLI) should be installed and configured on your local machine. You can find installation instructions [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html).
+3.  **Python 3.8+:** Ensure you have Python 3.8 or a later version installed.
+4.  **`.env` file:** Create a `.env` file in the root of the project and add the following environment variables:
+    ```
+    # API Keys
+    GROQ_API_KEY="your_groq_api_key_here"
+    GEMINI_API_KEY="your_gemini_api_key_here"
 
-First, you need to create the `.zip` deployment package on your local machine and upload it to an S3 bucket.
+    # AWS Credentials
+    AWS_REGION="your-aws-region"
+    AWS_ACCESS_KEY_ID="your-aws-access-key-id"
+    AWS_SECRET_ACCESS_KEY="your-aws-secret-access-key"
+    OUTPUT_S3_BUCKET="your-output-s3-bucket-name"
+    ```
 
-1.  **Build the package locally:** On your local machine, open a terminal and run the following commands. This will create the `lucas-format-extractor-lambda.zip` file in your project folder.
+## Step 1: Build and Upload the Deployment Package
+
+You have two options for getting the deployment package (`lucas-format-extractor-lambda.zip`) to S3:
+
+### Option A: Automatic Upload via Script (Recommended if AWS CLI is configured)
+
+1.  **Set the S3_BUCKET environment variable:** In your terminal, run the following command, replacing `your-input-s3-bucket-name` with the actual name of your input S3 bucket.
+
+    ```bash
+    export S3_BUCKET="your-input-s3-bucket-name"
+    ```
+
+2.  **Run the build script:** This script will create the deployment package and upload it to the S3 bucket you specified.
+    ```bash
+    ./build_lambda_package.sh
+    ```
+
+### Option B: Manual Upload via AWS S3 Console
+
+1.  **Build the package locally:** Run the build script with the `SKIP_S3_UPLOAD` environment variable set to `true`. This will create the `lucas-format-extractor-lambda.zip` file in your project root but will not upload it to S3.
+
     ```bash
     export SKIP_S3_UPLOAD="true"
     ./build_lambda_package.sh
-    unset SKIP_S3_UPLOAD
+    unset SKIP_S3_UPLOAD # Unset the variable after use
     ```
 
-2.  **Create an S3 Bucket for Your Code:**
-    *   In the AWS Console, navigate to the **S3** service.
-    *   Create a new, private S3 bucket to hold your Lambda code (e.g., `your-name-lambda-code-storage`). This bucket should be different from your input/output buckets.
+2.  **Manually upload to S3:**
+    *   Go to the [AWS S3 Console](https://s3.console.aws.amazon.com/s3/home).
+    *   Navigate to your **input S3 bucket** (e.g., `your-input-s3-bucket-name`).
+    *   Click the **"Upload"** button.
+    *   Drag and drop or click "Add files" to select your `lucas-format-extractor-lambda.zip` file.
+    *   Click **"Upload"**.
 
-3.  **Manually upload the `.zip` file:**
-    *   Navigate to the S3 bucket you just created.
-    *   Click **"Upload"**, select your `lucas-format-extractor-lambda.zip` file, and upload it.
+## Step 2: Set Up AWS Resources
 
----
+### a) Create S3 Buckets
 
-### Step 2: Create S3 Buckets for Input and Output
+You need two S3 buckets: one for the input files and one for the output files. You can create them using the AWS CLI:
 
-You need two more S3 buckets: one for your raw Excel files (input) and one for the transformed files (output).
+```bash
+aws s3 mb s3://your-input-s3-bucket-name
+aws s3 mb s3://your-output-s3-bucket-name
+```
 
-1.  In the **S3** service, create two new buckets:
-    *   An **input bucket** (e.g., `your-name-lucas-input-files`).
-    *   An **output bucket** (e.g., `your-name-lucas-output-files`).
-2.  Take note of these exact bucket names.
+Replace `your-input-s3-bucket-name` and `your-output-s3-bucket-name` with your desired bucket names.
 
----
+### b) Create a Basic IAM Role
 
-### Step 3: Create the IAM Role with S3 Permissions
+Your Lambda function still needs a basic execution role to allow it to run and write to CloudWatch logs.
 
-This is the most critical step for security. You will create a role that gives your Lambda function permission to access *only* the specific resources it needs.
-
-1.  In the AWS Console, navigate to the **IAM** service.
-2.  On the left menu, click **"Roles"**, then click **"Create role"**.
-3.  For "Trusted entity type", select **"AWS service"**.
-4.  For "Use case", choose **"Lambda"**, then click **"Next"**.
-5.  On the "Add permissions" page, click **"Next"** again (we will add permissions manually).
-6.  On the final page, for "Role name", enter `LucasFormatExtractorLambdaRole`, then click **"Create role"**.
-7.  From the list of roles, click on the `LucasFormatExtractorLambdaRole` you just created.
-8.  On the role's summary page, under the "Permissions policies" tab, click the **"Add permissions"** dropdown and select **"Create inline policy"**.
-9.  This will open the policy editor. Click on the **"JSON"** tab.
-10. **Copy and paste the following policy** into the JSON editor.
-
+1.  **Create a trust policy file** named `lambda-trust-policy.json`:
     ```json
     {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Action": [
-                    "logs:CreateLogGroup",
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents"
-                ],
-                "Resource": "arn:aws:logs:*:*:*"
-            },
-            {
-                "Effect": "Allow",
-                "Action": "s3:GetObject",
-                "Resource": "arn:aws:s3:::your-input-s3-bucket-name/*"
-            },
-            {
-                "Effect": "Allow",
-                "Action": "s3:PutObject",
-                "Resource": "arn:aws:s3:::your-output-s3-bucket-name/*"
-            }
-        ]
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "lambda.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole"
+        }
+      ]
     }
     ```
 
-11. **IMPORTANT:** In the policy text you just pasted, you **must** replace `your-input-s3-bucket-name` and `your-output-s3-bucket-name` with the actual names of the buckets you created in Step 2.
-12. Click **"Review policy"**.
-13. For "Name", enter `S3AndLoggingPermissions`, then click **"Create policy"**.
+2.  **Create the IAM role:**
+    ```bash
+    aws iam create-role --role-name LucasFormatExtractorLambdaRole --assume-role-policy-document file://lambda-trust-policy.json
+    ```
 
----
+3.  **Attach the basic execution policy to the role:**
+    ```bash
+    aws iam attach-role-policy --role-name LucasFormatExtractorLambdaRole --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    ```
 
-### Step 4: Create and Configure the Lambda Function
+## Step 3: Create and Configure the Lambda Function
 
-1.  In the AWS Console, navigate to the **Lambda** service.
-2.  Click **"Create function"**.
-3.  Select **"Author from scratch"**.
-4.  **Function name:** `lucas-format-extractor`.
-5.  **Runtime:** Select `Python 3.8`.
-6.  **Architecture:** Leave it as `x86_64`.
-7.  Expand **"Change default execution role"**:
-    *   Select **"Use an existing role"**.
-    *   Choose the `LucasFormatExtractorLambdaRole` from the dropdown.
-8.  Click **"Create function"**.
+1.  **Create the Lambda function:**
+    This command now points to the `.zip` file you uploaded to S3.
+    ```bash
+    aws lambda create-function \
+      --function-name lucas-format-extractor \
+      --runtime python3.8 \
+      --role arn:aws:iam::YOUR_AWS_ACCOUNT_ID:role/LucasFormatExtractorLambdaRole \
+      --handler lambda_function.lambda_handler \
+      --code S3Bucket=your-input-s3-bucket-name,S3Key=lucas-format-extractor-lambda.zip \
+      --timeout 300 \
+      --memory-size 512 \
+      --environment "Variables={GROQ_API_KEY=your_groq_api_key_here,GEMINI_API_KEY=your_gemini_api_key_here,OUTPUT_S3_BUCKET=your-output-s3-bucket-name,AWS_REGION=your-aws-region,AWS_ACCESS_KEY_ID=your-aws-access-key-id,AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key}"
+    ```
+    **Important:**
+    *   Replace `YOUR_AWS_ACCOUNT_ID` with your actual AWS account ID.
+    *   Replace `your-input-s3-bucket-name` with the name of your input S3 bucket.
+    *   Fill in the values for all the environment variables.
 
-#### Configure the Function
+    > **⚠️ Security Warning:** Storing access keys in environment variables is not a recommended security practice. For production environments, it is highly recommended to use an IAM role with fine-grained permissions to access AWS resources.
 
-1.  **Point to the Code in S3:**
-    *   On the function's page, in the **"Code source"** section, click **"Edit"**.
-    *   Select **"Amazon S3 location"**.
-    *   For "S3 URI", enter the S3 URI of your uploaded `.zip` file. You can get this by navigating to the file in the S3 console and copying its URI. It will look like `s3://your-name-lambda-code-storage/lucas-format-extractor-lambda.zip`.
-    *   Click **"Save"**.
+2.  **Add an S3 Trigger:**
+    *   Create a file named `s3-trigger-config.json` with the following content:
+        ```json
+        {
+          "LambdaFunctionConfigurations": [
+            {
+              "LambdaFunctionArn": "arn:aws:lambda:YOUR_REGION:YOUR_AWS_ACCOUNT_ID:function:lucas-format-extractor",
+              "Events": ["s3:ObjectCreated:*"],
+              "Filter": {
+                "Key": {
+                  "FilterRules": [
+                    {
+                      "Name": "suffix",
+                      "Value": ".xlsx"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+        ```
+        **Important:** Replace `YOUR_REGION` and `YOUR_AWS_ACCOUNT_ID` with your actual AWS region and account ID.
 
-2.  **Set Environment Variables:**
-    *   Go to the **"Configuration"** tab, then **"Environment variables"**.
-    *   Click **"Edit"**, then **"Add environment variable"** for the following keys (note that the AWS keys are no longer needed):
-        *   `GROQ_API_KEY`: `your_groq_api_key_here`
-        *   `OUTPUT_S3_BUCKET`: The name of your output bucket from Step 2.
-    *   Click **"Save"**.
+    *   Apply the S3 trigger configuration to your input bucket:
+        ```bash
+        aws s3api put-bucket-notification-configuration \
+          --bucket your-input-s3-bucket-name \
+          --notification-configuration file://s3-trigger-config.json
+        ```
+        **Important:** Replace `your-input-s3-bucket-name` with your actual input S3 bucket name.
 
-3.  **Increase Timeout and Memory:**
-    *   In the **"Configuration"** tab, go to **"General configuration"**.
-    *   Click **"Edit"**.
-    *   Set **Timeout** to **5 min**.
-    *   Set **Memory** to **512** MB.
-    *   Click **"Save"**.
+## Step 4: Test the Lambda Function
 
----
+1.  Upload an Excel file to your input S3 bucket.
+2.  Check the output S3 bucket for the transformed file.
+3.  Check the CloudWatch logs for the `lucas-format-extractor` Lambda function to see the execution logs.
 
-### Step 5: Add the S3 Trigger
+## How to Update the Lambda Function
 
-1.  In the **"Function overview"** diagram, click **"+ Add trigger"**.
-2.  Select **"S3"** from the dropdown.
-3.  **Bucket:** Choose your **input bucket** from Step 2.
-4.  **Event types:** Leave it as **"All object creation events"**.
-5.  **Suffix:** Enter `.xlsx`.
-6.  Check the acknowledgement box.
-7.  Click **"Add"**.
+When you make changes to your code, you just need to run the build script again and then tell Lambda to update its code.
 
----
+1.  **Build and upload the new package:**
+    *   If using automatic upload: `export S3_BUCKET="your-input-s3-bucket-name" && ./build_lambda_package.sh`
+    *   If using manual upload: `export SKIP_S3_UPLOAD="true" && ./build_lambda_package.sh` (then manually upload the new zip to S3).
 
-### Step 6: Test
-
-1.  Navigate to your **input S3 bucket**.
-2.  Upload a sample Excel file.
-3.  Check your **output S3 bucket**. The transformed file should appear within a few minutes.
-4.  To debug, go to the **"Monitor"** tab in your Lambda function and click **"View CloudWatch logs"**.
-
-This completes the secure, web-console-based deployment process. Shall I commit these final changes?
+2.  **Update the function code:**
+    ```bash
+    aws lambda update-function-code \
+      --function-name lucas-format-extractor \
+      --s3-bucket your-input-s3-bucket-name \
+      --s3-key lucas-format-extractor-lambda.zip
+    ```
+    **Important:** Replace `your-input-s3-bucket-name` with your actual input S3 bucket name.
