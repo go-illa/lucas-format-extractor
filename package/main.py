@@ -81,9 +81,19 @@ def process_client_file(client_file_path: str, schema_file_path: str, output_exc
 if __name__ == "__main__":
 
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    INPUT_FILE_PATH = os.path.join(BASE_DIR, 'input', 'real-elano-data.xlsx')
-    SCHEMA_FILE_PATH = os.path.join(BASE_DIR, 'schema', 'lucas_target_schema.json')
-    OUTPUT_FILE_PATH = os.path.join(BASE_DIR, 'output', 'elano_sample_TRANSFORMED.xlsx')
+    
+    # --- Configurable Paths ---
+    INPUT_FILENAME = 'elano_sample_test6.xlsx'
+    SCHEMA_FILENAME = 'lucas_target_schema.json'
+    
+    # --- Dynamic Path Construction ---
+    INPUT_FILE_PATH = os.path.join(BASE_DIR, 'input', INPUT_FILENAME)
+    SCHEMA_FILE_PATH = os.path.join(BASE_DIR, 'schema', SCHEMA_FILENAME)
+    
+    # Generate the output path based on the input filename
+    input_basename, input_ext = os.path.splitext(os.path.basename(INPUT_FILE_PATH))
+    OUTPUT_FILENAME = f"{input_basename}_transformed.xlsx"
+    OUTPUT_FILE_PATH = os.path.join(BASE_DIR, 'output', OUTPUT_FILENAME)
     
     os.makedirs(os.path.dirname(SCHEMA_FILE_PATH), exist_ok=True)
     if not os.path.exists(SCHEMA_FILE_PATH):

@@ -5,11 +5,15 @@
     },
     {
         "name": "Alternate ID",
-        "description": "An alternate or external order identifier."
+        "description": "An alternate or external order identifier.",
+        "type": "null",
+        "value": null
     },
     {
         "name": "Team ID",
-        "description": "The ID of the team assigned to this order (e.g., 101)."
+        "description": "The ID of the team assigned to this order (e.g., 101).",
+        "const": 101,
+        "value": 101
     },
     {
         "name": "Scan ID",
@@ -17,7 +21,9 @@
     },
     {
         "name": "Type",
-        "description": "The type of task, e.g., DROP for delivery, PICKUP for collection."
+        "description": "The type of task, e.g., DROP for delivery, PICKUP for collection.",
+        "const": "DROP",
+        "value": "DROP"
     },
     {
         "name": "Priority",
@@ -37,7 +43,9 @@
     },
     {
         "name": "Homebase ID",
-        "description": "The starting location ID for the delivery team."
+        "description": "The starting location ID for the delivery team.",
+        "const": 101,
+        "value": 101
     },
     {
         "name": "Homebase Execution Date",
