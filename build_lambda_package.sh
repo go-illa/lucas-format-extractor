@@ -53,4 +53,6 @@ if [ "$SKIP_S3_UPLOAD" = "true" ]; then
 else
   if [ -z "$S3_CODE_BUCKET" ]; then
     echo "Error: S3_CODE_BUCKET environment variable is not set. Cannot upload to S3."
-    echo "To skip S3 upload, set SKIP_S3_UPLOAD=\"true\".
+    echo "To skip S3 upload, set SKIP_S3_UPLOAD=\"true\"."
+  fi
+fi
