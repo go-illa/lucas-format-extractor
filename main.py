@@ -83,7 +83,7 @@ if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
     # --- Configurable Paths ---
-    INPUT_FILENAME = 'elano_sample_test6.xlsx'
+    INPUT_FILENAME = 'SOUQ.COM_NEW_CAIRO.xlsx'
     SCHEMA_FILENAME = 'lucas_target_schema.json'
     
     # --- Dynamic Path Construction ---
