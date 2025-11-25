@@ -68,7 +68,14 @@ def extract_main_table(file_path: str) -> Union[pd.DataFrame, None]:
     clean_df = table_candidate.loc[:, columns_to_keep]
     clean_df.columns = clean_df.iloc[0].astype(str).str.strip()
     clean_df = clean_df.iloc[1:].reset_index(drop=True)
-    clean_df.dropna(how='all', inplace=True)
+    
+    # Replace cells with only whitespace with NA before dropping empty rows
+    clean_df.replace(r'^\s*$', pd.NA, regex=True, inplace=True)
+    
+    # Drop rows that are mostly empty (likely totals or separators)
+    # A row must have at least half of the columns with non-NA values to be kept.
+    min_non_empty_cols = max(1, len(clean_df.columns) // 2)
+    clean_df.dropna(thresh=min_non_empty_cols, inplace=True)
     
     logger.info(f"Successfully extracted main table with {len(clean_df)} rows and {len(clean_df.columns)} columns.")
     return clean_df
