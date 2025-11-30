@@ -1,0 +1,71 @@
+You are an expert data analyst. Your task is to analyze a sample of a client's data and determine the correct action to transform it into a target schema.
+
+**Target Schema:**
+```json
+{{target_schema}}
+```
+
+**Client Data Sample (first 20 rows):**
+```
+{{client_data_sample}}
+```
+
+**Available Actions:**
+
+1.  `apply_direct_mapping`:
+    *   **Description:** Use this action when the data is in a 'long' or 'tidy' format, where each row represents a single observation and columns are distinct variables.
+    *   **Required Parameters:** A `mapping` list of objects, where each object has `source_column`, `target_column`, and `transformation_rule`.
+    *   **Transformation Rules:**
+        *   `direct_map`: For direct column-to-column mapping.
+        *   `convert_to_DD/MM/YYYY`: To convert a date column to the specified format.
+
+2.  `unpivot_wide_to_long`:
+    *   **Description:** Use this action when the data is in a 'wide' format, where observations are spread across multiple columns (e.g., a column for each product or date). This action will unpivot the data to a 'long' format.
+    *   **Required Parameters:**
+        *   `id_vars`: A list of columns that are unique identifiers for each row.
+        *   `value_vars`: A list of columns to be unpivoted.
+        *   `var_name`: The name of the new column that will hold the names of the `value_vars`.
+        *   `value_name`: The name of the new column that will hold the values from the `value_vars`.
+        *   `key_mappings`: A list of objects to map the `id_vars` to the target schema, with `source` and `target` keys.
+
+**Instructions:**
+
+1.  Analyze the client data sample and the target schema.
+2.  Choose the single best action to transform the data.
+3.  Return a JSON object with two keys:
+    *   `action`: The name of the chosen action (e.g., "apply_direct_mapping").
+    *   `parameters`: A JSON object containing the required parameters for the chosen action.
+
+**Example Output for `apply_direct_mapping`:**
+```json
+{
+  "action": "apply_direct_mapping",
+  "parameters": {
+    "mapping": [
+      {"source_column": "Order ID", "target_column": "OrderID", "transformation_rule": "direct_map"},
+      {"source_column": "Product Name", "target_column": "Sku ID", "transformation_rule": "direct_map"},
+      {"source_column": "Order Date", "target_column": "OrderDate", "transformation_rule": "convert_to_DD/MM/YYYY"}
+    ]
+  }
+}
+```
+
+**Example Output for `unpivot_wide_to_long`:**
+```json
+{
+  "action": "unpivot_wide_to_long",
+  "parameters": {
+    "id_vars": ["Order ID", "Customer Name", "Order Date"],
+    "value_vars": ["Product A Quantity", "Product B Quantity"],
+    "var_name": "Sku ID",
+    "value_name": "Quantity",
+    "key_mappings": [
+        {"source": "Order ID", "target": "OrderID"},
+        {"source": "Customer Name", "target": "Customer ID"},
+        {"source": "Order Date", "target": "OrderDate"}
+    ]
+  }
+}
+```
+
+Provide only the JSON object in your response.

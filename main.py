@@ -1,7 +1,8 @@
 import json
 import logging
 import os
-from etl import extractor, planner, transformer
+import pandas as pd
+from etl import extractor, planner, actions
 
 # --- Basic Logging Setup ---
 logging.basicConfig(
@@ -9,14 +10,17 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-def process_client_file(client_file_path: str, schema_file_path: str, output_csv_path: str):
+def get_action(action_name):
+    """Maps action name to a function."""
+    action_map = {
+        "apply_direct_mapping": actions.apply_direct_mapping,
+        "unpivot_wide_to_long": actions.unpivot_wide_to_long,
+    }
+    return action_map.get(action_name)
+
+def process_client_file(client_file_path: str, schema_file_path: str, output_excel_path: str):
     """
     Executes the full ETL pipeline for a given client file and schema.
-    
-    Args:
-        client_file_path (str): Path to the input client Excel file.
-        schema_file_path (str): Path to the JSON file defining the target schema.
-        output_csv_path (str): Path to save the final transformed CSV file.
     """
     # --- 1. Load Inputs ---
     try:
@@ -33,45 +37,64 @@ def process_client_file(client_file_path: str, schema_file_path: str, output_csv
         logging.error("Extraction failed. Aborting process.")
         return
 
-    plan = planner.generate_transformation_plan(main_table_df, target_schema)
-    if not plan:
-        logging.error("Plan generation failed. Aborting process.")
+    action_details = planner.select_action_with_llm(main_table_df, target_schema)
+    if not action_details:
+        logging.error("Action selection failed. Aborting process.")
         return
-    logging.info("AI Plan:\n" + json.dumps(plan, indent=2))
+    logging.info("AI Action Selected:\n" + json.dumps(action_details, indent=2))
 
-    final_df = transformer.apply_transformation_plan(main_table_df, plan, target_schema)
+    action_name = action_details.get("action")
+    action_params = action_details.get("parameters")
+    
+    action_function = get_action(action_name)
+
+    if not action_function:
+        logging.error(f"Action '{action_name}' is not a valid action. Aborting process.")
+        return
+
+    try:
+        # Add the DataFrame and schema to the parameters
+        action_params['client_df'] = main_table_df
+        action_params['target_schema'] = target_schema
+        
+        final_df = action_function(**action_params)
+    except TypeError as e:
+        logging.error(f"Error calling action '{action_name}': {e}. Check if the parameters from the LLM are correct.")
+        return
+    except Exception as e:
+        logging.error(f"An unexpected error occurred during the '{action_name}' action: {e}")
+        return
+
     if final_df is None or final_df.empty:
         logging.error("Transformation failed. No data to output.")
         return
 
     # --- 3. Save Output ---
     try:
-        os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
-        final_df.to_excel(output_csv_path, index=False)
-        logging.info(f"🎉 Success! Transformed data saved to {output_csv_path}")
+        os.makedirs(os.path.dirname(output_excel_path), exist_ok=True)
+        final_df.to_excel(output_excel_path, index=False)
+        logging.info(f"🎉 Success! Transformed data saved to {output_excel_path}")
     except Exception as e:
         logging.error(f"Failed to save the final excel file: {e}")
 
 
 if __name__ == "__main__":
 
-    # Define the input, schema, and output files for the ETL process.
-    
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # 1. SPECIFY THE CLIENT'S RAW DATA FILE
-    #    Place the file in the '/input/' directory.
-    INPUT_FILE_PATH = os.path.join(BASE_DIR, 'input', 'elano sample.xlsx')
-
-    # 2. SPECIFY THE TARGET SCHEMA
-    #    Place the schema definition in the '/schemas/' directory.
-    SCHEMA_FILE_PATH = os.path.join(BASE_DIR, 'schema', 'lucas_target_schema.json')
     
-    # 3. SPECIFY THE OUTPUT FILE PATH
-    #    The processed file will be saved in the '/output/' directory.
-    OUTPUT_FILE_PATH = os.path.join(BASE_DIR, 'output', 'elano_sample_TRANSFORMED.xlsx')
+    # --- Configurable Paths ---
+    INPUT_FILENAME = 'SOUQ.COM_NEW_CAIRO.xlsx'
+    SCHEMA_FILENAME = 'lucas_target_schema.json'
     
-    # --- Create dummy schema file for first-time run if it doesn't exist ---
+    # --- Dynamic Path Construction ---
+    INPUT_FILE_PATH = os.path.join(BASE_DIR, 'input', INPUT_FILENAME)
+    SCHEMA_FILE_PATH = os.path.join(BASE_DIR, 'schema', SCHEMA_FILENAME)
+    
+    # Generate the output path based on the input filename
+    input_basename, input_ext = os.path.splitext(os.path.basename(INPUT_FILE_PATH))
+    OUTPUT_FILENAME = f"{input_basename}_transformed.xlsx"
+    OUTPUT_FILE_PATH = os.path.join(BASE_DIR, 'output', OUTPUT_FILENAME)
+    
     os.makedirs(os.path.dirname(SCHEMA_FILE_PATH), exist_ok=True)
     if not os.path.exists(SCHEMA_FILE_PATH):
         print("Schema file not found. Creating a default schema file...")
@@ -84,14 +107,14 @@ if __name__ == "__main__":
             ], f, indent=2)
         logging.info(f"Created a default schema file at {SCHEMA_FILE_PATH}")
 
-    # --- Check for input file before running ---
     if not os.path.exists(INPUT_FILE_PATH):
          logging.error(f"FATAL: Input file not found at '{INPUT_FILE_PATH}'.")
          logging.warning("Please place your client's Excel file in the '/input/' directory and update the path in main.py")
     else:
-        # --- Run the main processing function ---
         process_client_file(
             client_file_path=INPUT_FILE_PATH,
             schema_file_path=SCHEMA_FILE_PATH,
-            output_csv_path=OUTPUT_FILE_PATH
+            output_excel_path=OUTPUT_FILE_PATH
         )
+
+        

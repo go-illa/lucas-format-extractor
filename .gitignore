@@ -11,4 +11,4 @@ __pycache__/
 
 # IDE settings
 .idea/
-.vscode/
+.vscode/\n# Ignore local build artifacts\npackage/

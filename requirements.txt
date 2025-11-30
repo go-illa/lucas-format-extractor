@@ -3,3 +3,4 @@ groq
 python-dotenv
 openpyxl
 boto3
+psycopg2-binary
