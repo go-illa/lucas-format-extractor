@@ -42,40 +42,45 @@ def _find_header_row_index_with_llm(raw_df: pd.DataFrame) -> Union[int, None]:
         logger.error(f"AI failed to find header row: {e}")
         return None
 
-def extract_main_table(file_path: str) -> Union[pd.DataFrame, None]:
+def extract_main_table(file_path: str, sheet_name: Union[str, int] = 0) -> Union[pd.DataFrame, None]:
     """
-    Reads an Excel file, uses an LLM to find the main table, and returns it as a clean DataFrame.
+    Reads a specific sheet from an Excel file, uses an LLM to find the main table,
+    and returns it as a clean DataFrame.
     """
-    logger.info(f"Reading raw data from {file_path}...")
+    logger.info(f"Reading raw data from {file_path}, sheet: {sheet_name}...")
     try:
-        raw_df = pd.read_excel(file_path, header=None, engine='openpyxl')
+        raw_df = pd.read_excel(file_path, sheet_name=sheet_name, header=None, engine='openpyxl')
     except Exception as e:
-        logger.error(f"Error reading Excel file: {e}")
+        logger.error(f"Error reading Excel file sheet '{sheet_name}': {e}")
         return None
-    
+
+    if raw_df is None:
+        logger.error(f"Failed to read any data from sheet '{sheet_name}'.")
+        return None
+
     header_row_index = _find_header_row_index_with_llm(raw_df)
-    
+
     if header_row_index is None or not isinstance(header_row_index, int):
         logger.error("AI could not reliably locate the main data table header.")
         return None
-        
+
     logger.info(f"AI identified the main table header at row {header_row_index + 1}.")
-    
+
     table_candidate = raw_df.iloc[header_row_index:].copy().reset_index(drop=True)
     header_series = table_candidate.iloc[0]
     columns_to_keep = header_series.notna()
-    
+
     clean_df = table_candidate.loc[:, columns_to_keep]
     clean_df.columns = clean_df.iloc[0].astype(str).str.strip()
     clean_df = clean_df.iloc[1:].reset_index(drop=True)
-    
+
     # Replace cells with only whitespace with NA before dropping empty rows
     clean_df.replace(r'^\s*$', pd.NA, regex=True, inplace=True)
-    
+
     # Drop rows that are mostly empty (likely totals or separators)
     # A row must have at least half of the columns with non-NA values to be kept.
     min_non_empty_cols = max(1, len(clean_df.columns) // 2)
     clean_df.dropna(thresh=min_non_empty_cols, inplace=True)
-    
+
     logger.info(f"Successfully extracted main table with {len(clean_df)} rows and {len(clean_df.columns)} columns.")
     return clean_df

@@ -147,11 +147,13 @@ def unpivot_wide_to_long(client_df: pd.DataFrame, id_vars: List[str], value_vars
 
     if 'Sku' in final_df.columns and not sku_map.keys().__len__==0:
         res = final_df['Sku'].apply(lambda x: _apply_mapping_and_get_status(x, sku_map, is_dict=True))
-        final_df['Sku'], final_df['Sku Mapping Status'] = zip(*res)
+        if not res.empty:
+            final_df['Sku'], final_df['Sku Mapping Status'] = zip(*res)
         
     if 'Location ID' in final_df.columns and not loc_map.keys().__len__==0:
         res = final_df['Location ID'].apply(lambda x: _apply_mapping_and_get_status(x, loc_map))
-        final_df['Location ID'], final_df['Location ID Mapping Status'] = zip(*res)
+        if not res.empty:
+            final_df['Location ID'], final_df['Location ID Mapping Status'] = zip(*res)
         
     # Ensure all target columns are present
     all_cols = target_columns + ['Sku Mapping Status', 'Location ID Mapping Status']

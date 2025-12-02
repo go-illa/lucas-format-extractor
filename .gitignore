@@ -12,3 +12,8 @@ __pycache__/
 # IDE settings
 .idea/
 .vscode/\n# Ignore local build artifacts\npackage/
+
+# Ignore excel temporary files
+input/.~lock.*.xlsx#
+input/*.xlsx
+

@@ -21,6 +21,7 @@ def get_action(action_name):
 def process_client_file(client_file_path: str, schema_file_path: str, output_excel_path: str):
     """
     Executes the full ETL pipeline for a given client file and schema.
+    It will try to find the relevant data by iterating through all sheets in the Excel file.
     """
     # --- 1. Load Inputs ---
     try:
@@ -32,9 +33,25 @@ def process_client_file(client_file_path: str, schema_file_path: str, output_exc
         return
 
     # --- 2. Execute ETL Pipeline ---
-    main_table_df = extractor.extract_main_table(client_file_path)
+    try:
+        xls = pd.ExcelFile(client_file_path)
+        sheet_names = xls.sheet_names
+    except Exception as e:
+        logging.error(f"Could not open Excel file to get sheet names: {e}")
+        return
+
+    main_table_df = None
+    for sheet_name in sheet_names:
+        logging.info(f"Attempting extraction from sheet: '{sheet_name}'")
+        main_table_df = extractor.extract_main_table(client_file_path, sheet_name=sheet_name)
+        if main_table_df is not None and not main_table_df.empty:
+            logging.info(f"Successfully extracted data from sheet: '{sheet_name}'")
+            break  # Found a good sheet, so we can stop.
+        else:
+            logging.warning(f"No valid data extracted from sheet: '{sheet_name}'. Trying next sheet.")
+
     if main_table_df is None or main_table_df.empty:
-        logging.error("Extraction failed. Aborting process.")
+        logging.error("Extraction failed for all sheets. Aborting process.")
         return
 
     action_details = planner.select_action_with_llm(main_table_df, target_schema)
@@ -83,7 +100,7 @@ if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
     # --- Configurable Paths ---
-    INPUT_FILENAME = 'SOUQ.COM_NEW_CAIRO.xlsx'
+    INPUT_FILENAME = 'real-elano-data.xlsx'
     SCHEMA_FILENAME = 'lucas_target_schema.json'
     
     # --- Dynamic Path Construction ---
