@@ -39,7 +39,7 @@ jobs:
 
       - name: Upload Package to S3
         run: |
-          aws s3 cp lucas-format-extractor-lambda.zip s3://${{ secrets.S3_CODE_BUCKET }}/lucas-format-extractor-lambda.zip
+          aws s3 cp lucas-format-extractor-lambda.zip s3://${{ secrets.S3_CODE_BUCKET }}/
 
       - name: Update Lambda Function Code
         run: |
