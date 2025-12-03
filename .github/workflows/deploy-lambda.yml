@@ -1,9 +1,6 @@
-# This is a GitHub Actions workflow to automate the deployment of the Lambda function.
-
 name: Deploy Lambda to AWS
 
 on:
-  # This workflow triggers on any push to the main branch.
   push:
     branches:
       - "lucas-format-extrator-v2"
@@ -39,7 +36,8 @@ jobs:
 
       - name: Upload Package to S3
         run: |
-          aws s3 cp lucas-format-extractor-lambda.zip s3://${{ secrets.S3_CODE_BUCKET }}/
+          # Removed the trailing slash '/'
+          aws s3 cp lucas-format-extractor-lambda.zip s3://${{ secrets.S3_CODE_BUCKET }}
 
       - name: Update Lambda Function Code
         run: |
