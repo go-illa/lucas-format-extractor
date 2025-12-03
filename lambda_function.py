@@ -2,7 +2,7 @@ import json
 import boto3
 import os
 import logging
-from main import process_client_file
+from etl.pipeline import process_client_file
 import config
 
 s3 = boto3.client('s3')
