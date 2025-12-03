@@ -34,10 +34,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Build and Upload Package to S3
-        env:
-          S3_CODE_BUCKET: ${{ secrets.S3_CODE_BUCKET }}
+      - name: Build Package
         run: ./build_lambda_package.sh
+
+      - name: Upload Package to S3
+        run: |
+          aws s3 cp lucas-format-extractor-lambda.zip s3://${{ secrets.S3_CODE_BUCKET }}/lucas-format-extractor-lambda.zip
 
       - name: Update Lambda Function Code
         run: |

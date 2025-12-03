@@ -1,9 +1,0 @@
-You are a data parsing expert. Your task is to find the starting row of the main data table in a messy text sample from an Excel file.
-The main table header contains column titles like 'NO.', 'Date', 'SO', 'Customer code', 'SKU', 'Quantity', 'Price', etc.
-Ignore any summary calculations, notes, or junk rows that appear before this header.
-Based on the following sample, on which row does the real table header start? The first row shown is row 0.
-
-**File Sample:**
-```{sample_text}```
-
-Your response MUST be a JSON object with a single key: `header_row_index`. The value must be an integer representing the zero-based index of the header row.
