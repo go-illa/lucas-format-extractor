@@ -26,7 +26,7 @@ mkdir -p $PACKAGE_DIR
 
 # 2. Install Python dependencies
 echo "Installing Python dependencies..."
-pip install -r requirements.txt -t $PACKAGE_DIR
+pip install --platform manylinux2014_x86_64 --target package --implementation cp --python-version 3.9 --only-binary=:all: -r requirements.txt
 
 # 3. Copy application code
 echo "Copying application code..."
